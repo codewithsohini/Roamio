@@ -35,7 +35,7 @@ Design decisions
 - When a disconnect or upstream error is detected we call
   ``aclose()`` on the upstream generator to trigger its ``finally``
   block — this ensures any httpx response objects inside
-  ``GraniteService.stream_completion`` are always closed.
+  ``GroqService.stream_completion`` are always closed.
 - ``sse_stream`` never raises; it converts every failure into an
   ``[ERROR]`` event so the HTTP response can always finish cleanly
   instead of leaving the client with an incomplete transfer.

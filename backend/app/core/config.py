@@ -79,24 +79,13 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # Which LLM provider to use. The factory (app/ai/factory.py) reads this
     # value and returns the matching AIProvider implementation.
-    AI_PROVIDER: Literal["granite"] = "granite"
+    AI_PROVIDER: Literal["groq"] = "groq"
 
-    # -------------------------------------------------------------------------
-    # IBM watsonx.ai / Granite
-    # -------------------------------------------------------------------------
-    WATSONX_API_KEY: str = Field(
-        ...,
-        description="IBM Cloud API key for watsonx.ai authentication. Required.",
-    )
-    WATSONX_PROJECT_ID: str = Field(
-        ...,
-        description="watsonx.ai project ID. Required.",
-    )
-    WATSONX_URL: str = "https://us-south.ml.cloud.ibm.com"
-    WATSONX_MODEL_ID: str = "ibm/granite-13b-chat-v2"
-    WATSONX_MAX_TOKENS: int = Field(default=4096, ge=1, le=8192)
-    WATSONX_TEMPERATURE: float = Field(default=0.7, ge=0.0, le=1.0)
-
+    GROQ_API_KEY: str = Field(
+    ...,
+    description="Groq API key"
+)
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
     # -------------------------------------------------------------------------
     # Future AI providers (not yet active — extend AI_PROVIDER Literal and
     # app/ai/factory.py when adding a new provider).

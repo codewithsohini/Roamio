@@ -1,6 +1,6 @@
 # Roamio Backend
 
-AI-powered travel companion backend — personalized itineraries powered by IBM Granite via IBM watsonx.ai.
+AI-powered travel companion backend — personalized itineraries powered by Groq.
 
 Built with **Python**, **FastAPI**, **PostgreSQL**, **SQLAlchemy**, and **Docker**.
 
@@ -15,7 +15,7 @@ Built with **Python**, **FastAPI**, **PostgreSQL**, **SQLAlchemy**, and **Docker
 | Database | PostgreSQL 15 |
 | ORM | SQLAlchemy 2 |
 | Migrations | Alembic |
-| AI Provider | IBM Granite via watsonx.ai |
+| AI Provider | Groq |
 | Auth | JWT (python-jose + passlib) |
 | Containerisation | Docker + Docker Compose |
 
@@ -33,7 +33,7 @@ backend/
 │   │   ├── base.py              ← Abstract AIProvider interface (Milestone 5)
 │   │   ├── factory.py           ← Resolves active AI provider from config (Milestone 5)
 │   │   └── providers/
-│   │       └── granite.py       ← IBM Granite / watsonx.ai implementation (Milestone 5)
+│   │       └── groq.py          ← Groq implementation (Milestone 5)
 │   ├── prompts/
 │   │   ├── system_prompt.py     ← Roamio AI personality + rules (Milestone 6)
 │   │   ├── itinerary_prompt.py  ← Trip generation prompt builder (Milestone 6)
@@ -155,13 +155,8 @@ See [`.env.example`](.env.example) for the full reference with descriptions.
 | `ALGORITHM` | JWT algorithm (default: HS256) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL |
-| `AI_PROVIDER` | Active AI provider (`granite`) |
-| `WATSONX_API_KEY` | IBM Cloud API key |
-| `WATSONX_PROJECT_ID` | watsonx.ai project ID |
-| `WATSONX_URL` | watsonx.ai regional endpoint |
-| `WATSONX_MODEL_ID` | IBM Granite model ID |
-| `WATSONX_MAX_TOKENS` | Max tokens per generation |
-| `WATSONX_TEMPERATURE` | Generation temperature (0.0–1.0) |
+| `AI_PROVIDER` | Active AI provider (`groq`) |
+| `GROQ_API_KEY` | GROQ API key |
 
 ---
 
@@ -197,7 +192,7 @@ See `docker/ecs-task-definition.json` and the `scripts/` folder for ECR push and
 | 2 | Configuration | ⏳ Pending |
 | 3 | Database Models | ⏳ Pending |
 | 4 | Authentication | ⏳ Pending |
-| 5 | IBM Granite Service and AI Provider Abstraction | ⏳ Pending |
+| 5 | Groq Service and AI Provider Abstraction | ⏳ Pending |
 | 6 | Prompt Templates | ⏳ Pending |
 | 7 | Prompt Builder | ⏳ Pending |
 | 8 | Recommendation Service | ⏳ Pending |

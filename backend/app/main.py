@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 app = FastAPI(
     title=settings.APP_NAME,
-    description="AI-powered travel companion backend — personalized itineraries powered by IBM Granite.",
+    description="AI-powered travel companion backend — personalized itineraries powered by Groq.",
     version=settings.APP_VERSION,
     lifespan=lifespan,
     # Disable docs in production.

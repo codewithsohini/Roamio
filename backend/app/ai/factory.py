@@ -16,7 +16,6 @@ That is all — no other file needs to change.
 """
 
 from functools import lru_cache
-
 from app.ai.base import AIProvider
 from app.core.config import settings
 
@@ -36,10 +35,10 @@ def get_ai_provider() -> AIProvider:
     """
     # Import here to keep provider modules out of the module-level import
     # graph — they are only loaded when actually needed.
-    from app.ai.providers.granite import GraniteService
+    from app.ai.providers.groq import GroqService
 
     _PROVIDER_MAP = {
-        "granite": GraniteService,
+        "groq": GroqService,
     }
 
     provider_key = settings.AI_PROVIDER

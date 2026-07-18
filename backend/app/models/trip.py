@@ -152,12 +152,16 @@ class Trip(Base, TimestampMixin):
     # Lifecycle status
     # -------------------------------------------------------------------------
     status: Mapped[TripStatus] = mapped_column(
-        Enum(TripStatus, name="tripstatus", create_type=False),
-        nullable=False,
-        default=TripStatus.PENDING,
-        server_default=TripStatus.PENDING.value,
-        doc="Generation lifecycle: pending → completed | failed.",
-    )
+    Enum(
+        TripStatus,
+        values_callable=lambda x: [e.value for e in x],
+        name="tripstatus",
+        create_type=False,
+    ),
+    nullable=False,
+    default=TripStatus.PENDING,
+    server_default=TripStatus.PENDING.value,
+)
 
     # -------------------------------------------------------------------------
     # Relationships
