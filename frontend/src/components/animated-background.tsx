@@ -11,7 +11,7 @@ export const AnimatedBackground = () => {
     if (!ctx) return;
 
     let width = canvas.width = window.innerWidth;
-    let height = canvas.width = window.innerHeight;
+    let height = canvas.height = window.innerHeight;
 
     const handleResize = () => {
       width = canvas.width = window.innerWidth;
