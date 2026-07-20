@@ -21,20 +21,15 @@ Design decisions
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 from app.schemas.token import TokenData
 
 # ---------------------------------------------------------------------------
-# Password hashing context
+# Password hashing — using bcrypt directly (passlib is incompatible with bcrypt 4.x)
 # ---------------------------------------------------------------------------
-# bcrypt is the scheme. `deprecated="auto"` means any older hash scheme
-# (if we ever migrate away from bcrypt) will be automatically flagged for
-# rehashing on next login — smooth algorithm upgrades with zero downtime.
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(plain_password: str) -> str:
     """
@@ -43,7 +38,7 @@ def hash_password(plain_password: str) -> str:
     The hash is safe to store in the database. The original password
     cannot be recovered from the hash.
     """
-    return _pwd_context.hash(plain_password)
+    return bcrypt.hashpw(plain_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -52,7 +47,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
     Uses constant-time comparison internally to prevent timing attacks.
     """
-    return _pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 # ---------------------------------------------------------------------------

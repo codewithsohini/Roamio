@@ -3,18 +3,12 @@ app/main.py
 ===========
 Roamio API — FastAPI application entry point.
 
-Responsibilities:
-- Instantiate the FastAPI app with metadata from settings.
-- Register global middleware (CORS).
-- Attach all routers (added per milestone).
-- Run a database connectivity check at startup so a missing DB surfaces
-  immediately as a startup error, not a mystery 500 during a request.
-- Expose the /health endpoint.
+All routes are mounted under the /api prefix.
 """
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -27,14 +21,8 @@ from app.routers import auth, chat, journeys, users
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Runs once at startup (before the first request) and once at shutdown.
-    Used to verify the database is reachable before serving traffic.
-    """
-    # Startup
     check_database_connection()
     yield
-    # Shutdown — nothing to clean up at this stage.
 
 
 # ---------------------------------------------------------------------------
@@ -45,51 +33,59 @@ app = FastAPI(
     description="AI-powered travel companion backend — personalized itineraries powered by Groq.",
     version=settings.APP_VERSION,
     lifespan=lifespan,
-    # Disable docs in production.
-    docs_url="/docs" if settings.APP_ENV != "production" else None,
-    redoc_url="/redoc" if settings.APP_ENV != "production" else None,
+    docs_url="/api/docs" if settings.APP_ENV != "production" else None,
+    redoc_url="/api/redoc" if settings.APP_ENV != "production" else None,
+    openapi_url="/api/openapi.json",
 )
 
 
 # ---------------------------------------------------------------------------
 # Middleware
 # ---------------------------------------------------------------------------
-# CORS origins are wide-open for local development.
-# In production, replace "*" with the deployed frontend URL via an env var.
+# Build the allowed origins list from settings.
+# In development, localhost:5173 and localhost:4173 are always allowed.
+# In production, set ALLOWED_ORIGINS in the environment.
+_allowed_origins: list[str] = [
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:5173",
+]
+
+if settings.ALLOWED_ORIGINS:
+    _allowed_origins.extend(
+        [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 # ---------------------------------------------------------------------------
-# Routers
+# Routers — all mounted under /api prefix
 # ---------------------------------------------------------------------------
-# Milestone 4 — Authentication & Users
-app.include_router(auth.router)
-app.include_router(users.router)
+api_router = APIRouter(prefix="/api")
 
-# Milestone 8/9 — Journey Planner (JSON + SSE streaming)
-app.include_router(journeys.router)
+api_router.include_router(auth.router)
+api_router.include_router(users.router)
+api_router.include_router(journeys.router)
+api_router.include_router(chat.router)
 
-# Milestone 10 — Chat SSE streaming
-app.include_router(chat.router)
-
-# Future milestones:
-#   Milestone 11 — travel_profile
+app.include_router(api_router)
 
 
 # ---------------------------------------------------------------------------
 # Health Check
 # ---------------------------------------------------------------------------
-@app.get("/health", tags=["Health"])
+@app.get("/api/health", tags=["Health"])
 async def health_check() -> dict:
     """
-    Confirms the Roamio backend is running and configuration has loaded.
-    Used by Docker healthchecks, load balancers, and CI pipelines.
+    Confirms the Roamio backend is running.
+    Used by the Replit proxy healthcheck.
     """
     return {
         "status": "ok",

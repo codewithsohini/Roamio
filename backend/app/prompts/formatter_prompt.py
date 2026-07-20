@@ -90,6 +90,11 @@ Rules:
 (matching the requested number of days). Do not merge or skip days.
 - Every array must contain at least one item. No empty arrays.
 - Every string field must be populated. No empty strings, no null values.
+- The `stay` array MUST contain at least 3 named, real accommodation \
+options (hotels, guesthouses, resorts, or homestays) with their actual \
+names — not generic descriptions.
+- The `food` array MUST contain at least 3 named, real restaurants or \
+specific food experiences with their actual names — not generic descriptions.
 - Use the traveller's actual preferences from the request to inform every \
 field — do not produce a generic itinerary.
 - The estimated_budget values must reflect the requested budget tier and \

@@ -34,9 +34,13 @@ ValueError (bad request data)        → 422 (handled by FastAPI automatically)
 Trip not found / wrong owner         → 404 Not Found
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.ai.base import AIProvider, AIProviderError
 from app.ai.factory import get_ai_provider
@@ -245,12 +249,44 @@ async def stream_journey(
     db.add(trip)
     db.commit()
 
-    # ── Async generator that emits trip_id then token stream ─────────────
+    # ── Async generator: emit trip_id, stream tokens, then persist ───────
     async def _journey_token_gen():
-        """Yield [TRIP_ID] marker, then delegate to ai_provider stream."""
+        """
+        1. Yield [TRIP_ID] so the client can track this trip.
+        2. Stream AI tokens to the client while accumulating the full response.
+        3. After streaming finishes, parse and persist the itinerary to DB.
+        """
+        from app.services.response_validator import ResponseValidator
+
         yield f"[TRIP_ID] {trip_id}"
-        async for token in ai_provider.stream_completion(prompt):
-            yield token
+
+        full_response = ""
+        try:
+            async for token in ai_provider.stream_completion(prompt):
+                full_response += token
+                yield token
+        except Exception as exc:
+            trip.status = TripStatus.FAILED
+            db.commit()
+            raise exc
+
+        # All tokens received — now parse and save the itinerary.
+        try:
+            validator = ResponseValidator(ai_provider)
+            itinerary = await validator.validate_and_repair(
+                raw_response=full_response,
+                original_prompt=prompt,
+                expected_destination=payload.destination,
+                expected_days=payload.days,
+            )
+            trip.itinerary = itinerary
+            trip.status = TripStatus.COMPLETED
+            db.commit()
+            logger.info("Stream trip %s saved as COMPLETED.", trip_id)
+        except Exception as exc:
+            trip.status = TripStatus.FAILED
+            db.commit()
+            logger.error("Stream trip %s failed to parse/save: %s", trip_id, exc)
 
     return StreamingResponse(
         sse_stream(_journey_token_gen(), request),
