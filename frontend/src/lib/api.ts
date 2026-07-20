@@ -1,229 +1,126 @@
-/**
- * api.ts
- * -------
- * Direct HTTP client for the Roamio FastAPI backend (http://localhost:8000).
- * Replaces the @workspace/api-client-react package with plain fetch calls.
- */
+export const TOKEN_KEY = "roamio_token";
 
-const BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+export const API_BASE: string =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
-function getToken(): string | null {
-  return localStorage.getItem('roamio_token');
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
 }
 
-async function request<T>(
-  method: string,
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export async function apiFetch(
   path: string,
-  options: { body?: unknown; formData?: URLSearchParams } = {}
-): Promise<T> {
-  const headers: Record<string, string> = { ...authHeaders() };
-
-  let body: BodyInit | undefined;
-  if (options.formData) {
-    headers['Content-Type'] = 'application/x-www-form-urlencoded';
-    body = options.formData.toString();
-  } else if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    body = JSON.stringify(options.body);
-  }
-
-  const res = await fetch(`${BASE_URL}${path}`, { method, headers, body });
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    const err: any = new Error(data.detail || `HTTP ${res.status}`);
-    err.status = res.status;
-    err.data = data;
-    throw err;
-  }
-
-  // 204 No Content
-  if (res.status === 204) return undefined as T;
-  return res.json();
-}
-
-// ── Auth ─────────────────────────────────────────────────────────────────────
-
-export interface RegisterPayload { email: string; password: string; }
-export interface UserResponse { id: string; email: string; created_at: string; updated_at: string; }
-export interface UserWithProfileResponse extends UserResponse { has_travel_profile: boolean; }
-export interface TokenResponse { access_token: string; token_type: string; }
-
-export function register(payload: RegisterPayload): Promise<UserResponse> {
-  return request('POST', '/auth/register', { body: payload });
-}
-
-/** Login uses OAuth2 form-urlencoded: field name is `username` (not email) */
-export function login(email: string, password: string): Promise<TokenResponse> {
-  const form = new URLSearchParams();
-  form.set('username', email);
-  form.set('password', password);
-  return request('POST', '/auth/login', { formData: form });
-}
-
-export function getMe(): Promise<UserWithProfileResponse> {
-  return request('GET', '/users/me');
-}
-
-// ── Journeys ─────────────────────────────────────────────────────────────────
-
-export interface JourneyRequest { destination: string; days: number; companions?: string; }
-
-export interface JourneySummary {
-  trip_id: string;
-  destination: string;
-  days: number;
-  companions: string | null;
-  status: 'pending' | 'completed' | 'failed';
-  created_at: string;
-}
-
-export interface JourneyDetail extends JourneySummary {
-  itinerary: Record<string, any> | null;
-}
-
-export function createJourney(payload: JourneyRequest): Promise<JourneyDetail> {
-  return request('POST', '/journeys', { body: payload });
-}
-
-export function listJourneys(limit = 20, offset = 0): Promise<JourneySummary[]> {
-  return request('GET', `/journeys?limit=${limit}&offset=${offset}`);
-}
-
-export function getJourney(tripId: string): Promise<JourneyDetail> {
-  return request('GET', `/journeys/${tripId}`);
-}
-
-// ── SSE helpers ──────────────────────────────────────────────────────────────
-
-/**
- * Streams POST /journeys/stream via SSE.
- * Calls onTripId once with the trip UUID, then onToken for each text chunk,
- * then onDone / onError at the end.
- */
-export function streamJourney(
-  payload: JourneyRequest,
-  callbacks: {
-    onTripId?: (id: string) => void;
-    onToken?: (token: string) => void;
-    onDone?: () => void;
-    onError?: (msg: string) => void;
-  }
-): () => void {
+  opts: RequestInit = {}
+): Promise<Response> {
   const token = getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+  const headers = new Headers(opts.headers);
 
-  const controller = new AbortController();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
-  (async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/journeys/stream`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...opts,
+    headers,
+  });
 
-      if (!res.ok || !res.body) {
-        callbacks.onError?.(`HTTP ${res.status}`);
-        return;
-      }
+  if (res.status === 401) {
+    clearToken();
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
+  }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') { callbacks.onDone?.(); return; }
-          if (data.startsWith('[ERROR]')) { callbacks.onError?.(data.slice(7).trim()); return; }
-          if (data.startsWith('[TRIP_ID]')) { callbacks.onTripId?.(data.slice(9).trim()); continue; }
-          callbacks.onToken?.(data);
-        }
-      }
-    } catch (e: any) {
-      if (e?.name !== 'AbortError') callbacks.onError?.(e?.message ?? 'Stream error');
-    }
-  })();
-
-  return () => controller.abort();
+  return res;
 }
 
-/**
- * Streams POST /chat/stream via SSE.
- */
-export function streamChat(
-  message: string,
-  useProfile: boolean,
-  callbacks: {
-    onToken?: (token: string) => void;
-    onDone?: () => void;
-    onError?: (msg: string) => void;
-  }
-): () => void {
-  const token = getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
+export async function streamPost(
+  path: string,
+  body: object,
+  onChunk: (chunk: string) => void,
+  onDone: () => void,
+  onError: (msg: string) => void
+): Promise<void> {
+  try {
+    const token = getToken();
 
-  const controller = new AbortController();
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    });
 
-  (async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/chat/stream`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ message, use_profile: useProfile }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok || !res.body) {
-        callbacks.onError?.(`HTTP ${res.status}`);
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') { callbacks.onDone?.(); return; }
-          if (data.startsWith('[ERROR]')) { callbacks.onError?.(data.slice(7).trim()); return; }
-          callbacks.onToken?.(data);
-        }
-      }
-    } catch (e: any) {
-      if (e?.name !== 'AbortError') callbacks.onError?.(e?.message ?? 'Stream error');
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
     }
-  })();
 
-  return () => controller.abort();
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    if (res.status === 401) {
+      clearToken();
+      window.location.href = "/login";
+      return;
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      onError(`Request failed: ${res.status} ${text}`);
+      return;
+    }
+
+    if (!res.body) {
+      onError("No response body");
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+
+      for (const part of parts) {
+        const line = part.trim();
+
+        if (!line.startsWith("data: ")) continue;
+
+        const data = line.slice(6);
+
+        if (data === "[DONE]") {
+          onDone();
+          return;
+        }
+
+        if (data.startsWith("[ERROR]")) {
+          onError(data.slice(7).trim());
+          return;
+        }
+
+        onChunk(data);
+      }
+    }
+
+    onDone();
+  } catch (error) {
+    onError(
+      error instanceof Error ? error.message : "Unknown error occurred"
+    );
+  }
 }
