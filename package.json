@@ -2,18 +2,11 @@
   "name": "roamio",
   "version": "1.0.0",
   "private": true,
-  "description": "Roamio — AI Travel Planner. See README.md for setup instructions.",
   "scripts": {
-    "docker:up": "docker compose -f backend/docker/docker-compose.yml up --build -d",
-    "docker:down": "docker compose -f backend/docker/docker-compose.yml down",
-    "docker:logs": "docker compose -f backend/docker/docker-compose.yml logs -f",
-    "docker:build": "docker compose -f backend/docker/docker-compose.yml build",
-    "install:frontend": "cd frontend && npm install",
-    "postinstall": "npm run install:frontend",
-    "dev:frontend": "cd frontend && npm run dev",
-    "dev": "concurrently --kill-others --names \"DOCKER,FRONTEND\" --prefix-colors \"cyan,magenta\" \"npm run docker:up && npm run docker:logs\" \"npm run dev:frontend\""
-  },
-  "devDependencies": {
-    "concurrently": "^9.1.0"
+    "install": "cd frontend && npm install",
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview",
+    "typecheck": "cd frontend && npm run typecheck"
   }
 }

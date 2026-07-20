@@ -1,0 +1,80 @@
+# ==============================================================================
+# Roamio — Docker Compose
+# ==============================================================================
+# Services:
+#   roamio-db       — PostgreSQL 16 database
+#   roamio-api      — FastAPI backend (built from backend/Dockerfile)
+#   roamio-frontend — React/Vite frontend served via nginx
+#
+# Usage:
+#   1. Copy backend/.env.example to backend/.env and fill values.
+#   2. (Optional) Copy frontend/.env.example to frontend/.env
+#   3. docker compose up --build
+#
+# Backend API:  http://localhost:8080
+# Frontend:     http://localhost:3000
+# ==============================================================================
+
+services:
+
+  # ── Database ────────────────────────────────────────────────────────────────
+  roamio-db:
+    image: postgres:16-alpine
+    container_name: roamio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: roamio_user
+      POSTGRES_PASSWORD: roamio_pass
+      POSTGRES_DB: roamio_db
+    volumes:
+      - roamio_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"          # expose for local DB clients (remove in prod)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roamio_user -d roamio_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  roamio-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: roamio-api
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env          # create from .env.example
+    environment:
+      # Override the DB host to match the compose service name
+      DATABASE_URL: postgresql://roamio_user:roamio_pass@roamio-db:5432/roamio_db
+      PORT: "8080"
+      # Allow requests from the frontend container
+      ALLOWED_ORIGINS: "http://localhost:3000,http://roamio-frontend:80"
+    ports:
+      - "8080:8080"
+    depends_on:
+      roamio-db:
+        condition: service_healthy
+
+  # ── React Frontend ───────────────────────────────────────────────────────────
+  roamio-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        # Points the frontend at the API. For Docker use the API service name.
+        # For production replace with your real backend URL.
+        VITE_API_BASE_URL: http://localhost:8080
+    container_name: roamio-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - roamio-api
+
+volumes:
+  roamio_pgdata:
+    driver: local
