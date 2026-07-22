@@ -8,9 +8,9 @@ validated trip record lives here.
 Architecture contract
 ---------------------
 - This is the ONLY caller of PromptBuilder and AIProvider in the system.
-- Routers call this service; they never touch GroqService or prompts directly.
+- Routers call this service; they never touch GraniteService or prompts directly.
 - The service receives AIProvider as an abstract interface — the concrete
-  GroqService is never imported here.
+  GraniteService is never imported here.
 
 Pipeline (generate_itinerary)
 ------------------------------

@@ -32,7 +32,7 @@ def get_recommendation_service() -> RecommendationService:
 
     get_ai_provider() is lru_cache-backed — the same AIProvider instance
     is reused across all requests in the process lifetime, which means the
-    IAM token cache (inside GroqService) is also shared and reused.
+    IAM token cache (inside GraniteService) is also shared and reused.
     """
     return RecommendationService(
         ai_provider=get_ai_provider(),

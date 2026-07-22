@@ -101,17 +101,16 @@ class PromptBuilder:
         self,
         message: str,
         *,
+        history: list[dict[str, str]] | None = None,
         travel_profile: "TravelProfile | None" = None,
     ) -> str:
         """
         Builds the full chat prompt.
 
-        Optionally injects the user's TravelProfile context to personalise
-        the chat response. If travel_profile is None, no profile block is
-        injected and the model responds to the message without personalisation.
-
         Args:
-            message:        The user's chat message.
+            message:        The user's current message.
+            history:        Recent conversation turns as list of
+                            ``{"role": "user"|"assistant", "content": "..."}``.
             travel_profile: The user's TravelProfile ORM instance (optional).
 
         Returns:
@@ -121,6 +120,7 @@ class PromptBuilder:
 
         return build_chat_prompt(
             message,
+            history=history,
             preferred_budget=profile.preferred_budget if profile else None,
             food_preference=profile.food_preference if profile else None,
             travel_style=profile.travel_style if profile else None,

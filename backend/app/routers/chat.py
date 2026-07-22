@@ -89,9 +89,16 @@ async def chat_stream(
             .first()
         )
 
+    # ── Convert history schema objects to plain dicts ─────────────────────
+    history = [{"role": t.role, "content": t.content} for t in payload.history]
+
     # ── Build prompt ──────────────────────────────────────────────────────
     builder = PromptBuilder()
-    prompt = builder.for_chat(payload.message, travel_profile=travel_profile)
+    prompt = builder.for_chat(
+        payload.message,
+        history=history or None,
+        travel_profile=travel_profile,
+    )
 
     # ── Stream through SSE utility ────────────────────────────────────────
     token_gen = ai_provider.stream_completion(prompt)

@@ -7,7 +7,7 @@ Centralised, environment-driven configuration for the Roamio backend.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -60,15 +60,35 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = ""
 
     # -------------------------------------------------------------------------
-    # AI Provider
+    # AI Provider — IBM watsonx.ai
     # -------------------------------------------------------------------------
-    AI_PROVIDER: Literal["groq"] = "groq"
+    AI_PROVIDER: Literal["watsonx"] = "watsonx"
 
-    GROQ_API_KEY: str = Field(
+    WATSONX_API_KEY: str = Field(
         ...,
-        description="Groq API key",
+        description="IBM Cloud API key for watsonx.ai authentication.",
     )
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    WATSONX_PROJECT_ID: str = Field(
+        ...,
+        description="IBM watsonx.ai project ID.",
+    )
+    WATSONX_URL: str = Field(
+        default="https://us-south.ml.cloud.ibm.com",
+        description="watsonx.ai regional endpoint URL.",
+    )
+    WATSONX_MODEL_ID: str = Field(
+        default="ibm/granite-4-h-small",
+        description="Model ID to use for generation (e.g. ibm/granite-4-h-small).",
+    )
+    # Generation parameters — tune without code changes
+    WATSONX_MAX_TOKENS: int = Field(
+        default=4096,
+        description="Maximum new tokens the model may generate per request.",
+    )
+    WATSONX_TEMPERATURE: float = Field(
+        default=0.7,
+        description="Sampling temperature (0.0 = deterministic, 1.0 = creative).",
+    )
 
     # -------------------------------------------------------------------------
     # Validators

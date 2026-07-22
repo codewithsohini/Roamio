@@ -50,7 +50,11 @@ async def sse_stream(
             if await request.is_disconnected():
                 break
             # Each SSE event: "data: <content>\n\n"
-            yield f"data: {token}\n\n".encode("utf-8")
+            # Per the SSE spec, if the token contains newlines each line must
+            # be prefixed with "data: " so the event is parsed correctly by
+            # browsers and our own frontend reader.
+            safe_token = token.replace("\n", "\ndata: ")
+            yield f"data: {safe_token}\n\n".encode("utf-8")
 
         # Only send [DONE] if the client is still connected.
         if not await request.is_disconnected():

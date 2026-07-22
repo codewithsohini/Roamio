@@ -35,10 +35,10 @@ def get_ai_provider() -> AIProvider:
     """
     # Import here to keep provider modules out of the module-level import
     # graph — they are only loaded when actually needed.
-    from app.ai.providers.groq import GroqService
+    from app.ai.providers.granite import GraniteService
 
     _PROVIDER_MAP = {
-        "groq": GroqService,
+        "watsonx": GraniteService,
     }
 
     provider_key = settings.AI_PROVIDER
