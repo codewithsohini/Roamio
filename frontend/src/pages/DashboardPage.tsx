@@ -11,7 +11,7 @@ type Journey = {
   trip_id: string;
   destination: string;
   days: number;
-  companions: string;
+  companions: string | null;
   status: "pending" | "completed" | "failed";
   created_at: string;
 };

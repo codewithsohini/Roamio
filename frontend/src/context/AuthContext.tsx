@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { getToken, setToken, clearToken, apiFetch, API_BASE } from "@/lib/api";
+import { useLocation } from "wouter";
 
 type User = {
   id: string;
@@ -24,8 +25,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(getToken());
   const [isLoading, setIsLoading] = useState(true);
+  // Guard against calling logout() re-triggering the useEffect infinitely
+  const isLoggingOut = useRef(false);
 
   useEffect(() => {
+    if (isLoggingOut.current) return;
+
     async function loadUser() {
       if (!token) {
         setIsLoading(false);
@@ -37,10 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const data = await res.json();
           setUser(data);
         } else {
-          logout();
+          // Token is invalid or expired — clear it without redirecting
+          clearToken();
+          setTokenState(null);
+          setUser(null);
         }
-      } catch (e) {
-        logout();
+      } catch {
+        // Network error — don't log out, just stop loading
       } finally {
         setIsLoading(false);
       }
@@ -48,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, [token]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<void> => {
     const params = new URLSearchParams();
     params.append("username", email);
     params.append("password", password);
@@ -56,38 +64,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await fetch(`${API_BASE}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString()
+      body: params.toString(),
     });
 
     if (!res.ok) {
-      throw new Error("Invalid email or password");
+      // Surface the actual backend error message when available
+      let detail = "Invalid email or password";
+      try {
+        const err = await res.json();
+        if (err.detail) detail = err.detail;
+      } catch { /* ignore parse errors */ }
+      throw new Error(detail);
     }
 
     const data = await res.json();
     setToken(data.access_token);
     setTokenState(data.access_token);
+    // useEffect will run and populate `user` from /api/users/me
   };
 
-  const register = async (email: string, password: string) => {
+  const register = async (email: string, password: string): Promise<void> => {
     const res = await fetch(`${API_BASE}/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ email, password }),
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Registration failed");
+      let detail = "Registration failed";
+      try {
+        const err = await res.json();
+        // FastAPI returns { detail: string } or { detail: [{msg, ...}] }
+        if (typeof err.detail === "string") {
+          detail = err.detail;
+        } else if (Array.isArray(err.detail) && err.detail[0]?.msg) {
+          detail = err.detail[0].msg;
+        }
+      } catch { /* ignore */ }
+      throw new Error(detail);
     }
 
+    // Registration succeeded — immediately log in
     await login(email, password);
   };
 
   const logout = () => {
+    isLoggingOut.current = true;
     clearToken();
     setTokenState(null);
     setUser(null);
-    window.location.href = "/";
+    // Use replace so the back button doesn't return to the protected page
+    window.location.replace("/");
   };
 
   return (

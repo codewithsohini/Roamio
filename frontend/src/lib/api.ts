@@ -97,11 +97,17 @@ export async function streamPost(
       buffer = parts.pop() || "";
 
       for (const part of parts) {
-        const line = part.trim();
+        // An SSE event may span multiple lines, each prefixed with "data: ".
+        // Collect all data lines and join them with "\n" to reconstruct the
+        // original token (which may itself contain newlines, e.g. markdown).
+        const dataLines = part
+          .split("\n")
+          .filter((l) => l.startsWith("data: "))
+          .map((l) => l.slice(6));
 
-        if (!line.startsWith("data: ")) continue;
+        if (dataLines.length === 0) continue;
 
-        const data = line.slice(6);
+        const data = dataLines.join("\n");
 
         if (data === "[DONE]") {
           onDone();
